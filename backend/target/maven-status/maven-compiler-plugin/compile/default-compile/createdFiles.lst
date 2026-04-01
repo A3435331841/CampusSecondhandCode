@@ -1,0 +1,17 @@
+com\campus\secondhand\mapper\ProductMapper.class
+com\campus\secondhand\entity\User.class
+com\campus\secondhand\service\impl\OrderServiceImpl.class
+com\campus\secondhand\controller\ProductController.class
+com\campus\secondhand\mapper\OrderMapper.class
+com\campus\secondhand\dto\LoginDTO.class
+com\campus\secondhand\controller\UserController.class
+com\campus\secondhand\entity\Order.class
+com\campus\secondhand\entity\Product.class
+com\campus\secondhand\mapper\UserMapper.class
+com\campus\secondhand\SecondhandApplication.class
+com\campus\secondhand\controller\OrderController.class
+com\campus\secondhand\common\Result.class
+com\campus\secondhand\dto\ProductPublishDTO.class
+com\campus\secondhand\service\OrderService.class
+com\campus\secondhand\dto\OrderCreateDTO.class
+com\campus\secondhand\controller\AuthController.class
