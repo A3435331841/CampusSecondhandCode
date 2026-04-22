@@ -44,19 +44,53 @@ CREATE TABLE IF NOT EXISTS `biz_product` (
 CREATE TABLE IF NOT EXISTS `biz_order` (
   `order_no` VARCHAR(64) NOT NULL COMMENT '订单号',
   `buyer_id` BIGINT NOT NULL COMMENT '买家ID',
+  `seller_id` BIGINT NOT NULL COMMENT '卖家ID',
   `product_id` BIGINT NOT NULL COMMENT '商品ID',
+  `buy_count` INT NOT NULL DEFAULT 1 COMMENT '购买数量',
   `total_amount` DECIMAL(10,2) NOT NULL COMMENT '总金额',
-  `status` INT DEFAULT 0 COMMENT '状态: 0待支付, 1已支付, 2已取消',
+  `status` INT DEFAULT 0 COMMENT '状态: 0待交接, 1已完成, 2已取消',
   `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   PRIMARY KEY (`order_no`),
-  INDEX `idx_buyer_id` (`buyer_id`)
+  INDEX `idx_buyer_id` (`buyer_id`),
+  INDEX `idx_seller_id` (`seller_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='订单表';
+
+-- 创建聊天会话表
+CREATE TABLE IF NOT EXISTS `biz_chat_session` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `session_key` VARCHAR(128) NOT NULL COMMENT '会话唯一键: productId_minUserId_maxUserId',
+  `product_id` BIGINT NOT NULL COMMENT '关联商品ID',
+  `user_a_id` BIGINT NOT NULL COMMENT '较小用户ID',
+  `user_b_id` BIGINT NOT NULL COMMENT '较大用户ID',
+  `last_message_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '最后消息时间',
+  `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_session_key` (`session_key`),
+  INDEX `idx_product_id` (`product_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='聊天会话表';
+
+-- 创建聊天消息表
+CREATE TABLE IF NOT EXISTS `biz_chat_message` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `session_key` VARCHAR(128) NOT NULL COMMENT '会话唯一键',
+  `product_id` BIGINT NOT NULL COMMENT '关联商品ID',
+  `from_user_id` BIGINT NOT NULL COMMENT '发送者ID',
+  `to_user_id` BIGINT NOT NULL COMMENT '接收者ID',
+  `content` TEXT NOT NULL COMMENT '消息内容',
+  `type` VARCHAR(20) DEFAULT 'text' COMMENT '消息类型: text/system',
+  `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '发送时间',
+  PRIMARY KEY (`id`),
+  INDEX `idx_session_key` (`session_key`),
+  INDEX `idx_create_time` (`create_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='聊天消息表';
 
 -- =============================================
 -- 初始化测试数据（如需重置，先执行TRUNCATE）
 -- =============================================
 
 -- 删除旧数据
+TRUNCATE TABLE `biz_chat_message`;
+TRUNCATE TABLE `biz_chat_session`;
 TRUNCATE TABLE `biz_order`;
 TRUNCATE TABLE `biz_product`;
 TRUNCATE TABLE `sys_user`;

@@ -28,10 +28,11 @@
 </template>
 
 <script setup>
-import { ref, nextTick } from 'vue'
+import { ref, nextTick, getCurrentInstance } from 'vue'
 import { onLoad, onUnload } from '@dcloudio/uni-app'
 
 const API_WS = 'ws://localhost:8080/ws/chat'
+const { proxy } = getCurrentInstance()
 const messages = ref([])
 const inputText = ref('')
 const scrollIntoView = ref('')
@@ -40,6 +41,24 @@ const toUserId = ref('')
 const productId = ref('')
 const currentUserId = ref('')
 let socketTask = null
+
+const loadHistory = async () => {
+  const res = await proxy.$request({
+    url: '/chat/history',
+    method: 'GET',
+    data: {
+      toUserId: Number(toUserId.value),
+      productId: Number(productId.value),
+      current: 1,
+      size: 100
+    }
+  })
+  messages.value = (res?.records || []).map((msg) => ({
+    ...msg,
+    self: String(msg.fromUserId) === String(currentUserId.value)
+  }))
+  await scrollBottom()
+}
 
 const scrollBottom = async () => {
   await nextTick()
@@ -121,6 +140,7 @@ onLoad((options) => {
   const title = options.title ? decodeURIComponent(options.title) : '聊天'
   uni.setNavigationBarTitle({ title })
   parseUserId()
+  loadHistory()
   connectSocket()
 })
 

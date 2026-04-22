@@ -29,7 +29,7 @@
           <u-icon name="bag" size="28" color="#1890FF"></u-icon>
           <text class="text">我发布的</text>
         </view>
-        <view class="status-item">
+        <view class="status-item" @click="goMyBuy">
           <u-icon name="shopping-cart" size="28" color="#52c41a"></u-icon>
           <text class="text">我买到的</text>
         </view>
@@ -98,6 +98,14 @@ const goMyPublish = () => {
     return
   }
   uni.navigateTo({ url: '/pages/my-publish/my-publish' })
+}
+
+const goMyBuy = () => {
+  if (!isLoggedIn.value) {
+    uni.showToast({ title: '请先登录', icon: 'none' })
+    return
+  }
+  uni.navigateTo({ url: '/pages/my-buy/my-buy' })
 }
 
 const handleLogout = async () => {

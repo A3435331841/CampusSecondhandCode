@@ -1,22 +1,18 @@
-package com.campus.secondhand.entity;
+package com.campus.secondhand.dto;
 
-import com.baomidou.mybatisplus.annotation.TableId;
-import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
-@TableName("biz_order")
-public class Order {
-    @TableId
+public class OrderItemDTO {
     private String orderNo;
-    private Long buyerId;
-    private Long sellerId;
     private Long productId;
-    private Integer buyCount;
+    private String productTitle;
+    private String productImage;
     private BigDecimal totalAmount;
+    private Integer buyCount;
     /** 0待交接, 1已完成, 2已取消 */
     private Integer status;
     private LocalDateTime createTime;

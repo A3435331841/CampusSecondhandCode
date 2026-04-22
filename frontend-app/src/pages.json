@@ -63,6 +63,15 @@
 				"navigationBarBackgroundColor": "#ffffff",
 				"navigationBarTextStyle": "black"
 			}
+		},
+		{
+			"path": "pages/my-buy/my-buy",
+			"style": {
+				"navigationBarTitleText": "我买到的",
+				"navigationBarBackgroundColor": "#ffffff",
+				"navigationBarTextStyle": "black",
+				"enablePullDownRefresh": true
+			}
 		}
 	],
 	"globalStyle": {

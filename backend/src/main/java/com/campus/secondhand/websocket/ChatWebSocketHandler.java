@@ -1,6 +1,7 @@
 package com.campus.secondhand.websocket;
 
 import com.campus.secondhand.dto.ChatMessageDTO;
+import com.campus.secondhand.service.ChatService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -26,6 +27,9 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
 
     @Autowired
     private StringRedisTemplate stringRedisTemplate;
+
+    @Autowired
+    private ChatService chatService;
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
@@ -72,6 +76,10 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         msg.setFromUserId(fromUserId);
         msg.setType(msg.getType() == null || msg.getType().isBlank() ? "text" : msg.getType());
         msg.setTimestamp(System.currentTimeMillis());
+        if (msg.getProductId() == null) {
+            return;
+        }
+        chatService.saveMessage(msg);
 
         String payload = MAPPER.writeValueAsString(msg);
 
