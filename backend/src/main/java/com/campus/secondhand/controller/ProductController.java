@@ -1,75 +1,79 @@
 package com.campus.secondhand.controller;
 
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.campus.secondhand.common.Result;
 import com.campus.secondhand.dto.ProductPublishDTO;
 import com.campus.secondhand.entity.Product;
-import com.campus.secondhand.mapper.ProductMapper;
+import com.campus.secondhand.service.ProductService;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
-
-import java.time.LocalDateTime;
 
 @RestController
 @RequestMapping("/api/product")
 public class ProductController {
 
     @Autowired
-    private ProductMapper productMapper;
+    private ProductService productService;
 
-    // 分页查询商品 (后台管理/前端首页通用)
+    /**
+     * 分页查询商品列表（游客可访问，支持关键词搜索和分类筛选）
+     */
     @GetMapping("/list")
-    public Result<IPage<Product>> listProducts(@RequestParam(defaultValue = "1") Integer current,
-                                               @RequestParam(defaultValue = "10") Integer size,
-                                               @RequestParam(required = false) Integer status) {
-        Page<Product> page = new Page<>(current, size);
-        QueryWrapper<Product> queryWrapper = new QueryWrapper<>();
-        if (status != null) {
-            queryWrapper.eq("status", status);
-        }
-        queryWrapper.orderByDesc("create_time");
-        IPage<Product> productPage = productMapper.selectPage(page, queryWrapper);
-        return Result.success(productPage);
+    public Result<IPage<Product>> listProducts(
+            @RequestParam(defaultValue = "1") Integer current,
+            @RequestParam(defaultValue = "10") Integer size,
+            @RequestParam(required = false) Integer status,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Integer categoryId) {
+        return Result.success(productService.listProducts(current, size, status, keyword, categoryId));
     }
 
-    // 获取单个商品详情
+    /**
+     * 获取商品详情（游客可访问）
+     */
     @GetMapping("/detail/{id}")
     public Result<Product> getProductDetail(@PathVariable Long id) {
-        Product product = productMapper.selectById(id);
+        Product product = productService.getProductDetail(id);
         if (product == null) {
             return Result.error("商品不存在");
         }
         return Result.success(product);
     }
 
-    // 商品发布接口
+    /**
+     * 发布商品（需登录）
+     */
     @PostMapping("/publish")
-    public Result<String> publishProduct(@RequestBody ProductPublishDTO dto) {
-        Product product = new Product();
-        product.setTitle(dto.getTitle());
-        product.setDescription(dto.getDescription());
-        product.setPrice(dto.getPrice());
-        product.setCategoryId(dto.getCategoryId());
-        product.setStock(dto.getStock());
-        product.setStatus(0); // 默认为待审核状态
-        product.setCreateTime(LocalDateTime.now());
-        
-        // 模拟当前登录用户ID
-        product.setSellerId(1001L); 
-        
-        productMapper.insert(product);
+    public Result<String> publishProduct(@RequestBody ProductPublishDTO dto, HttpServletRequest request) {
+        Long currentUserId = (Long) request.getAttribute("currentUserId");
+        productService.publishProduct(dto, currentUserId);
         return Result.success("商品发布成功，等待审核");
     }
 
-    // 审核/上下架商品接口
+    /**
+     * 审核/上下架商品（需管理员）
+     */
     @PostMapping("/audit")
-    public Result<String> auditProduct(@RequestParam Long id, @RequestParam Integer status) {
-        Product product = new Product();
-        product.setId(id);
-        product.setStatus(status);
-        productMapper.updateById(product);
+    public Result<String> auditProduct(@RequestParam Long id, @RequestParam Integer status,
+                                       HttpServletRequest request) {
+        String role = (String) request.getAttribute("currentUserRole");
+        if (!"admin".equals(role)) {
+            return Result.error("无权限操作");
+        }
+        productService.auditProduct(id, status);
         return Result.success("操作成功");
+    }
+
+    /**
+     * 查询当前登录用户发布的商品
+     */
+    @GetMapping("/my")
+    public Result<IPage<Product>> getMyProducts(
+            @RequestParam(defaultValue = "1") Integer current,
+            @RequestParam(defaultValue = "10") Integer size,
+            HttpServletRequest request) {
+        Long currentUserId = (Long) request.getAttribute("currentUserId");
+        return Result.success(productService.getMyProducts(currentUserId, current, size));
     }
 }

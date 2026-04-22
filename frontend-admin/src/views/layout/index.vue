@@ -38,8 +38,8 @@
         <div class="header-right">
           <el-dropdown @command="handleCommand">
             <span class="user-dropdown">
-              <el-avatar :size="32" src="https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png" />
-              <span class="name">Admin</span>
+              <el-avatar :size="32" :src="adminUser.avatar || 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'" />
+              <span class="name">{{ adminUser.nickname || 'Admin' }}</span>
               <el-icon class="el-icon--right"><arrow-down /></el-icon>
             </span>
             <template #dropdown>
@@ -66,13 +66,25 @@
 <script setup>
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { computed } from 'vue'
+import { logout } from '../../api/auth.js'
 
 const route = useRoute()
 const router = useRouter()
 
-const handleCommand = (command) => {
+const adminUser = computed(() => {
+  try {
+    return JSON.parse(localStorage.getItem('admin_user') || '{}')
+  } catch {
+    return {}
+  }
+})
+
+const handleCommand = async (command) => {
   if (command === 'logout') {
+    try { await logout() } catch {}
     localStorage.removeItem('admin_token')
+    localStorage.removeItem('admin_user')
     ElMessage.success('已退出登录')
     router.push('/login')
   }

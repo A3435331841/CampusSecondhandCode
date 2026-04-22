@@ -7,7 +7,9 @@ import java.math.BigDecimal;
 public class ProductPublishDTO {
     private String title;
     private String description;
+    /** 商品图片URL，多张以逗号分隔 */
+    private String images;
     private BigDecimal price;
     private Integer categoryId;
-    private Integer stock = 1; // 二手商品默认库存1
+    private Integer stock = 1;
 }

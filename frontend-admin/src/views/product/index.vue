@@ -3,18 +3,24 @@
     <el-card shadow="never">
       <!-- Tabs 过滤 -->
       <el-tabs v-model="activeTab" @tab-click="handleTabClick">
-        <el-tab-pane label="全部" name="all"></el-tab-pane>
-        <el-tab-pane label="待审核" name="auditing"></el-tab-pane>
-        <el-tab-pane label="售卖中" name="onsale"></el-tab-pane>
-        <el-tab-pane label="已下架/违规" name="offsale"></el-tab-pane>
+        <el-tab-pane label="全部" name="all" />
+        <el-tab-pane label="待审核" name="0" />
+        <el-tab-pane label="售卖中" name="1" />
+        <el-tab-pane label="已下架" name="2" />
       </el-tabs>
 
       <!-- 表格 -->
       <el-table :data="tableData" border style="width: 100%; margin-top: 15px" v-loading="loading">
-        <el-table-column prop="id" label="商品ID" width="80" align="center" />
+        <el-table-column prop="id" label="ID" width="70" align="center" />
         <el-table-column label="商品主图" width="100" align="center">
           <template #default="{ row }">
-            <el-image style="width: 60px; height: 60px" :src="row.image" fit="cover" :preview-src-list="[row.image]" preview-teleported />
+            <el-image
+              style="width: 60px; height: 60px; border-radius: 4px;"
+              :src="getFirstImage(row.images)"
+              fit="cover"
+              :preview-src-list="[getFirstImage(row.images)]"
+              preview-teleported
+            />
           </template>
         </el-table-column>
         <el-table-column prop="title" label="商品标题" show-overflow-tooltip min-width="200" />
@@ -23,13 +29,16 @@
             <span style="color: #f56c6c; font-weight: bold">¥ {{ row.price }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="category" label="分类" width="100" />
-        <el-table-column prop="seller" label="发布人" width="120" />
+        <el-table-column prop="categoryId" label="分类" width="90">
+          <template #default="{ row }">{{ categoryMap[row.categoryId] || '未知' }}</template>
+        </el-table-column>
+        <el-table-column prop="sellerId" label="卖家ID" width="90" align="center" />
         <el-table-column label="状态" width="100" align="center">
           <template #default="{ row }">
             <el-tag :type="getStatusType(row.status)">{{ getStatusText(row.status) }}</el-tag>
           </template>
         </el-table-column>
+        <el-table-column prop="createTime" label="发布时间" width="160" />
         <el-table-column label="操作" fixed="right" min-width="150">
           <template #default="{ row }">
             <template v-if="row.status === 0">
@@ -39,56 +48,81 @@
             <template v-if="row.status === 1">
               <el-button type="warning" link size="small" @click="handleAudit(row, 2)">强制下架</el-button>
             </template>
-            <el-button type="primary" link size="small">详情</el-button>
           </template>
         </el-table-column>
       </el-table>
-      
+
       <!-- 分页 -->
       <div class="pagination-wrap">
-        <el-pagination background layout="prev, pager, next" :total="50" />
+        <el-pagination
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          :page-sizes="[10, 20, 50]"
+          layout="total, sizes, prev, pager, next"
+          :total="total"
+          @size-change="loadData"
+          @current-change="loadData"
+        />
       </div>
     </el-card>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { getProductList, auditProduct } from '../../api/product.js'
 
 const activeTab = ref('all')
 const loading = ref(false)
+const currentPage = ref(1)
+const pageSize = ref(10)
+const total = ref(0)
+const tableData = ref([])
 
-const tableData = ref([
-  { id: 1, title: '大四学姐自用 iPhone 13 128G', price: '2800.00', image: 'https://images.unsplash.com/photo-1510557880182-3d4d3cba35a5?auto=format&fit=crop&w=400&q=80', category: '数码产品', seller: '林学姐', status: 1 },
-  { id: 2, title: '全新未拆封 蓝牙耳机', price: '99.00', image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=400&q=80', category: '数码产品', seller: '张三', status: 0 },
-  { id: 3, title: '代写作业/论文包过 (违规测试)', price: '500.00', image: 'https://images.unsplash.com/photo-1455390582262-044cdead27d8?auto=format&fit=crop&w=400&q=80', category: '其他', seller: '黑产小哥', status: 2 },
-])
-
-const getStatusType = (status) => {
-  const map = { 0: 'warning', 1: 'success', 2: 'danger' }
-  return map[status] || 'info'
+const categoryMap = {
+  1: '数码产品', 2: '书籍教材', 3: '衣物鞋帽',
+  4: '代步工具', 5: '生活日用', 6: '其他闲置'
 }
 
-const getStatusText = (status) => {
-  const map = { 0: '待审核', 1: '售卖中', 2: '已下架' }
-  return map[status] || '未知'
+const getFirstImage = (images) => {
+  if (!images) return 'https://via.placeholder.com/60x60?text=无图'
+  return images.split(',')[0].trim()
+}
+
+const getStatusType = (status) => ({ 0: 'warning', 1: 'success', 2: 'danger', 3: 'info' }[status] || 'info')
+const getStatusText = (status) => ({ 0: '待审核', 1: '售卖中', 2: '已下架', 3: '已售出' }[status] || '未知')
+
+const loadData = async () => {
+  loading.value = true
+  try {
+    const params = { current: currentPage.value, size: pageSize.value }
+    if (activeTab.value !== 'all') params.status = Number(activeTab.value)
+    const res = await getProductList(params)
+    tableData.value = res.records || []
+    total.value = res.total || 0
+  } finally {
+    loading.value = false
+  }
 }
 
 const handleTabClick = () => {
-  loading.value = true
-  setTimeout(() => { loading.value = false }, 300)
+  currentPage.value = 1
+  loadData()
 }
 
 const handleAudit = (row, targetStatus) => {
   const actionText = targetStatus === 1 ? '审核通过' : '下架/驳回'
-  ElMessageBox.confirm(`确定要 ${actionText} 商品 "${row.title}" 吗？`, '提示', {
+  ElMessageBox.confirm(`确定要「${actionText}」商品「${row.title}」吗？`, '提示', {
     confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning'
-  }).then(() => {
-    row.status = targetStatus
-    ElMessage.success(`操作成功`)
+  }).then(async () => {
+    await auditProduct(row.id, targetStatus)
+    ElMessage.success('操作成功')
+    loadData()
   }).catch(() => {})
 }
+
+onMounted(loadData)
 </script>
 
 <style scoped lang="scss">

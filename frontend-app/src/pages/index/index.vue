@@ -4,7 +4,15 @@
     <view class="search-header">
       <view class="search-box">
         <text class="icon-search">🔍</text>
-        <input type="text" placeholder="搜搜同学们的闲置..." class="search-input" />
+        <input
+          type="text"
+          v-model="keyword"
+          placeholder="搜搜同学们的闲置..."
+          class="search-input"
+          confirm-type="search"
+          @confirm="handleSearch"
+        />
+        <text v-if="keyword" class="clear-btn" @click="clearSearch">✕</text>
       </view>
     </view>
 
@@ -19,7 +27,7 @@
 
     <!-- 3. 分类金刚区 (Grid) -->
     <view class="category-grid">
-      <view class="grid-item" v-for="(item, index) in categories" :key="index" @click="handleCategoryClick(item.name)">
+      <view class="grid-item" v-for="(item, index) in categories" :key="index" @click="handleCategoryClick(item)">
         <view class="icon-wrap" :style="{ backgroundColor: item.color }">
           <text class="emoji-icon">{{ item.icon }}</text>
         </view>
@@ -58,6 +66,25 @@
 import { ref, onMounted, getCurrentInstance } from 'vue'
 
 const { proxy } = getCurrentInstance()
+const API_ORIGIN = 'http://localhost:8080'
+
+const normalizeImageUrl = (url) => {
+  if (!url) return ''
+  if (/^https?:\/\//.test(url)) return url
+  return `${API_ORIGIN}${url}`
+}
+
+// 搜索关键词
+const keyword = ref('')
+
+const handleSearch = () => {
+  fetchProducts(keyword.value)
+}
+
+const clearSearch = () => {
+  keyword.value = ''
+  fetchProducts()
+}
 
 // 模拟轮播图数据
 const banners = ref([
@@ -66,24 +93,20 @@ const banners = ref([
   'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&q=80&w=800&h=400'
 ])
 
-// 模拟分类数据
+// 分类数据（id 与后端 category_id 对应）
 const categories = ref([
-  { name: '数码产品', icon: '📱', color: '#E6F7FF' },
-  { name: '书籍教材', icon: '📚', color: '#F6FFED' },
-  { name: '衣物鞋帽', icon: '👗', color: '#FFF0F6' },
-  { name: '代步工具', icon: '🚲', color: '#FFF7E6' },
-  { name: '美妆护肤', icon: '💄', color: '#FCF0FF' },
-  { name: '生活日用', icon: '🧻', color: '#E6FFFB' },
-  { name: '乐器乐理', icon: '🎸', color: '#F0F5FF' },
-  { name: '其他闲置', icon: '📦', color: '#F5F5F5' }
+  { id: 1, name: '数码产品', icon: '📱', color: '#E6F7FF' },
+  { id: 2, name: '书籍教材', icon: '📚', color: '#F6FFED' },
+  { id: 3, name: '衣物鞋帽', icon: '👗', color: '#FFF0F6' },
+  { id: 4, name: '代步工具', icon: '🚲', color: '#FFF7E6' },
+  { id: 5, name: '生活日用', icon: '🧻', color: '#E6FFFB' },
+  { id: 6, name: '其他闲置', icon: '📦', color: '#F5F5F5' }
 ])
 
-// 处理分类点击
-const handleCategoryClick = (name) => {
-  uni.showToast({
-    title: `即将跳转: ${name}专区`,
-    icon: 'none'
-  })
+// 处理分类点击 - 按分类筛选
+const handleCategoryClick = (item) => {
+  keyword.value = ''
+  fetchProducts('', item.id)
 }
 
 // 跳转到商品详情页
@@ -97,29 +120,29 @@ const goToDetail = (id) => {
 const products = ref([])
 
 // 从后端获取真实商品数据
-const fetchProducts = async () => {
+const fetchProducts = async (kw = '', categoryId = null) => {
   try {
-    const res = await proxy.$request({
-      url: '/product/list',
-      method: 'GET',
-      data: {
-        current: 1,
-        size: 10,
-        status: 1 // 1表示在售状态
-      }
-    })
-    
-    // 如果后端返回了数据，将其映射到前端需要的格式
+    const params = { current: 1, size: 20, status: 1 }
+    if (kw) params.keyword = kw
+    if (categoryId) params.categoryId = categoryId
+
+    const res = await proxy.$request({ url: '/product/list', method: 'GET', data: params })
+
     if (res && res.records) {
       products.value = res.records.map(item => ({
         id: item.id,
         title: item.title,
         price: item.price,
-        image: 'https://images.unsplash.com/photo-1510557880182-3d4d3cba35a5?auto=format&fit=crop&w=400&q=80', // 暂时用网图占位
+        // 取第一张图，如无则用默认占位图
+        image: item.images
+          ? normalizeImageUrl(item.images.split(',')[0].trim())
+          : 'https://images.unsplash.com/photo-1510557880182-3d4d3cba35a5?auto=format&fit=crop&w=400&q=80',
         seller: '同学_' + item.sellerId,
         avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + item.sellerId,
-        condition: '全新' // 暂时写死
+        condition: '二手'
       }))
+    } else {
+      products.value = []
     }
   } catch (error) {
     console.error('获取商品列表失败:', error)
@@ -166,6 +189,12 @@ page {
       flex: 1;
       font-size: 14px;
       color: #333;
+    }
+
+    .clear-btn {
+      font-size: 14px;
+      color: #999;
+      padding: 0 4px;
     }
   }
 }

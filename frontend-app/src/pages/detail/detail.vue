@@ -66,7 +66,7 @@
         <text>留言</text>
       </view>
       <view class="btn-group">
-        <view class="btn chat-btn">聊一聊</view>
+        <view class="btn chat-btn" @click="goChat">聊一聊</view>
         <view class="btn buy-btn" @click="handleBuy">立即购买</view>
       </view>
     </view>
@@ -81,6 +81,13 @@ import { onLoad } from '@dcloudio/uni-app'
 
 const { proxy } = getCurrentInstance()
 const uToast = ref(null)
+const API_ORIGIN = 'http://localhost:8080'
+
+const normalizeImageUrl = (url) => {
+  if (!url) return ''
+  if (/^https?:\/\//.test(url)) return url
+  return `${API_ORIGIN}${url}`
+}
 
 // 商品详情数据，初始为空
 const product = ref({
@@ -94,6 +101,7 @@ const product = ref({
     'https://images.unsplash.com/photo-1510557880182-3d4d3cba35a5?auto=format&fit=crop&w=800&q=80' // 默认占位图
   ],
   seller: {
+    sellerId: '',
     name: '加载中...',
     avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=loading'
   }
@@ -115,10 +123,11 @@ const fetchProductDetail = async (id) => {
         price: res.price,
         originalPrice: (res.price * 1.2).toFixed(2), // 模拟原价
         condition: '全新',
-        images: [
-          'https://images.unsplash.com/photo-1510557880182-3d4d3cba35a5?auto=format&fit=crop&w=800&q=80'
-        ],
+        images: res.images
+          ? res.images.split(',').map(img => normalizeImageUrl(img.trim())).filter(Boolean)
+          : ['https://images.unsplash.com/photo-1510557880182-3d4d3cba35a5?auto=format&fit=crop&w=800&q=80'],
         seller: {
+          sellerId: res.sellerId,
           name: '同学_' + res.sellerId,
           avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + res.sellerId
         }
@@ -128,6 +137,26 @@ const fetchProductDetail = async (id) => {
     console.error('获取详情失败:', error)
     uni.showToast({ title: '加载失败', icon: 'none' })
   }
+}
+
+const goChat = () => {
+  const token = uni.getStorageSync('user_token')
+  if (!token) {
+    uni.showToast({ title: '请先登录', icon: 'none' })
+    return
+  }
+  const userInfoText = uni.getStorageSync('user_info')
+  let currentUserId = null
+  try {
+    currentUserId = userInfoText ? JSON.parse(userInfoText).userId : null
+  } catch {}
+  if (String(currentUserId) === String(product.value.seller.sellerId)) {
+    uni.showToast({ title: '这是你自己的商品', icon: 'none' })
+    return
+  }
+  uni.navigateTo({
+    url: `/pages/chat/chat?toUserId=${product.value.seller.sellerId}&productId=${product.value.id}&title=${encodeURIComponent(product.value.title || '聊天')}`
+  })
 }
 
 // 页面加载时获取通过 URL 传过来的商品 ID
@@ -146,23 +175,39 @@ const previewImage = (index) => {
 }
 
 // 立即购买
-const handleBuy = () => {
-  if (uToast.value) {
-    uToast.value.show({
-      type: 'loading',
-      message: '正在生成订单...',
-      duration: 1000,
-      complete() {
-        uToast.value.show({ type: 'success', message: '下单成功，跳转支付' })
+const handleBuy = async () => {
+  const token = uni.getStorageSync('user_token')
+  if (!token) {
+    uni.showModal({
+      title: '提示',
+      content: '请先登录后再购买',
+      confirmText: '去登录',
+      success: (res) => {
+        if (res.confirm) uni.navigateTo({ url: '/pages/login/login' })
       }
     })
-  } else {
-    uni.showLoading({ title: '正在生成订单...' })
-    setTimeout(() => {
-      uni.hideLoading()
-      uni.showToast({ title: '下单成功，跳转支付', icon: 'success' })
-    }, 1000)
+    return
   }
+
+  uni.showModal({
+    title: '确认购买',
+    content: `确定要购买「${product.value.title}」吗？`,
+    success: async (res) => {
+      if (!res.confirm) return
+      uni.showLoading({ title: '正在生成订单...' })
+      try {
+        const orderNo = await proxy.$request({
+          url: '/order/create',
+          method: 'POST',
+          data: { productId: product.value.id, buyCount: 1 }
+        })
+        uni.hideLoading()
+        uni.showToast({ title: `下单成功！订单号: ${orderNo}`, icon: 'success', duration: 2500 })
+      } catch {
+        uni.hideLoading()
+      }
+    }
+  })
 }
 </script>
 

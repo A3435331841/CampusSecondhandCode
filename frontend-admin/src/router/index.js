@@ -10,6 +10,7 @@ const routes = [
     path: '/',
     component: () => import('../views/layout/index.vue'),
     redirect: '/dashboard',
+    meta: { requiresAuth: true },
     children: [
       {
         path: 'dashboard',
@@ -36,6 +37,18 @@ const routes = [
 const router = createRouter({
   history: createWebHistory(),
   routes
+})
+
+// 路由守卫：未登录跳转到登录页
+router.beforeEach((to, from, next) => {
+  const token = localStorage.getItem('admin_token')
+  if (to.meta.requiresAuth && !token) {
+    next('/login')
+  } else if (to.path === '/login' && token) {
+    next('/')
+  } else {
+    next()
+  }
 })
 
 export default router

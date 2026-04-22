@@ -23,7 +23,7 @@
         </u-form-item>
         
         <u-form-item borderBottom>
-          <u-textarea v-model="form.desc" placeholder="详细描述一下你的闲置吧，比如购买渠道、使用感受、新旧程度..." border="none" count></u-textarea>
+          <u-textarea v-model="form.description" placeholder="详细描述一下你的闲置吧，比如购买渠道、使用感受、新旧程度..." border="none" count></u-textarea>
         </u-form-item>
         
         <u-form-item label="分类" borderBottom @click="showCategory = true">
@@ -61,6 +61,7 @@ const { proxy } = getCurrentInstance()
 const uToast = ref(null)
 const fileList = ref([])
 const showCategory = ref(false)
+const API_ORIGIN = 'http://localhost:8080'
 
 const form = ref({
   title: '',
@@ -84,26 +85,62 @@ const categoryMap = {
   '其他闲置': 6
 }
 
-// 图片上传后触发
-const afterRead = (event) => {
-  // 当设置 mutiple 为 true 时, file 为数组格式，否则为对象格式
-  let lists = [].concat(event.file)
-  let fileListLen = fileList.value.length
-  lists.map((item) => {
-    fileList.value.push({
-      ...item,
-      status: 'uploading',
-      message: '上传中'
+const normalizeImageUrl = (url) => {
+  if (!url) return ''
+  if (/^https?:\/\//.test(url)) return url
+  return `${API_ORIGIN}${url}`
+}
+
+const uploadSingleFile = (filePath) => {
+  const token = uni.getStorageSync('user_token') || ''
+  return new Promise((resolve, reject) => {
+    uni.uploadFile({
+      url: `${API_ORIGIN}/api/file/upload`,
+      filePath,
+      name: 'file',
+      header: {
+        Authorization: token
+      },
+      success: (res) => {
+        try {
+          const body = JSON.parse(res.data || '{}')
+          if (res.statusCode === 200 && body.code === 200) {
+            resolve(normalizeImageUrl(body.data))
+          } else {
+            reject(new Error(body.msg || '上传失败'))
+          }
+        } catch (e) {
+          reject(new Error('上传响应解析失败'))
+        }
+      },
+      fail: () => reject(new Error('网络异常，上传失败'))
     })
   })
-  // 模拟上传成功
-  setTimeout(() => {
-    for (let i = 0; i < lists.length; i++) {
-      fileList.value[fileListLen].status = 'success'
-      fileList.value[fileListLen].message = ''
-      fileListLen++
+}
+
+// 图片上传后触发
+const afterRead = async (event) => {
+  const lists = [].concat(event.file)
+  for (const item of lists) {
+    const target = {
+      ...item,
+      status: 'uploading',
+      message: '上传中',
+      serverUrl: ''
     }
-  }, 1000)
+    fileList.value.push(target)
+    try {
+      const url = await uploadSingleFile(item.url)
+      target.status = 'success'
+      target.message = ''
+      target.url = url
+      target.serverUrl = url
+    } catch (e) {
+      target.status = 'failed'
+      target.message = '上传失败'
+      uni.showToast({ title: e.message || '上传失败', icon: 'none' })
+    }
+  }
 }
 
 // 删除图片
@@ -135,6 +172,17 @@ const submitPublish = async () => {
     else uni.showToast({ title: '请输入价格', icon: 'none' })
     return
   }
+  const uploadedImages = fileList.value
+    .map(item => item.serverUrl)
+    .filter(Boolean)
+  if (uploadedImages.length === 0) {
+    uni.showToast({ title: '请至少上传1张图片', icon: 'none' })
+    return
+  }
+  if (fileList.value.some(item => item.status === 'uploading')) {
+    uni.showToast({ title: '图片上传中，请稍后', icon: 'none' })
+    return
+  }
 
   uni.showLoading({ title: '发布中...' })
 
@@ -145,6 +193,7 @@ const submitPublish = async () => {
       data: {
         title: form.value.title,
         description: form.value.description,
+        images: uploadedImages.join(','),
         price: Number(form.value.price),
         categoryId: form.value.categoryId,
         stock: 1 // 闲置物品默认库存为1

@@ -17,8 +17,11 @@ public class Product {
     private Integer categoryId;
     private String title;
     private String description;
+    /** 商品图片URL，多张以逗号分隔 */
+    private String images;
     private BigDecimal price;
     private Integer stock;
-    private Integer status; // 0待审核, 1在售, 2下架, 3售出
+    /** 0待审核, 1在售, 2下架, 3售出 */
+    private Integer status;
     private LocalDateTime createTime;
 }
