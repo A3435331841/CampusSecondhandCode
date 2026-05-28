@@ -1,0 +1,43 @@
+spring:
+  application:
+    name: secondhand-backend
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 30MB
+  datasource:
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:campus_secondhand}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
+    username: ${DB_USER:root}
+    password: ${DB_PASSWORD:}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      database: ${REDIS_DB:0}
+
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+
+server:
+  port: 8080
+
+wechat:
+  mini-app:
+    app-id: ${WECHAT_MINI_APP_ID:}
+    app-secret: ${WECHAT_MINI_APP_SECRET:}
+
+tencent:
+  map:
+    key: ${TENCENT_MAP_KEY:}
+
+file:
+  upload-dir: ${user.dir}/uploads/
+
+ai:
+  deepseek:
+    api-key: sk-1b158ff7444b488b93e923409fc3734f
+    base-url: https://api.deepseek.com/v1
+    model: deepseek-chat
